@@ -169,6 +169,9 @@ export class Date {
   @Event({ eventName: 'chiDateChange', cancelable: true })
   eventChange: EventEmitter;
 
+  @Event({ eventName: 'chiDateReady', cancelable: true })
+  chiDateReady: EventEmitter;
+
   _vm: {
     dates: Dayjs[];
     today: Dayjs;
@@ -293,6 +296,8 @@ export class Date {
   componentDidLoad(): void {
     document.body.addEventListener('keydown', this._onKeyDown.bind(this));
     document.body.addEventListener('focusin', this._onFocusIn.bind(this));
+
+    this.chiDateReady.emit();
   }
 
   disconnectedCallback(): void {

@@ -1,4 +1,4 @@
-import { Component, Element, Listen, Method, Prop, Watch, h, Event, EventEmitter } from '@stencil/core';
+import { Component, Element, Listen, Method, Prop, Watch, h, Event, EventEmitter, State } from '@stencil/core';
 import { contains, uuid4 } from '../../utils/utils';
 import {
   CHI_TIME_AUTO_SCROLL_DELAY,
@@ -94,7 +94,7 @@ export class DatePicker {
   /**
    * Date change value event
    */
-  @Event({ eventName: 'chiDateChange' }) eventChange: EventEmitter;
+  @Event({ eventName: 'chiDatePickerChange' }) eventChange: EventEmitter;
 
   /**
    * Triggered if the date value introduced by the user is invalid
@@ -108,6 +108,8 @@ export class DatePicker {
 
   excludedWeekdaysArray = [];
   excludedDatesArray = [];
+
+  @State() chiDateReady = false;
 
   @Watch('state')
   stateValidation(newValue: ChiStates) {
@@ -266,23 +268,20 @@ export class DatePicker {
 
   @Listen('chiDateChange')
   handleDateChange(ev) {
-    if (ev.target.nodeName === 'CHI-DATE') {
-      ev.preventDefault();
-      ev.stopImmediatePropagation();
-      this.eventChange.emit(ev.detail);
-    }
-    ev.stopPropagation();
     this._input.value = ev.detail;
-    if (this.mode === 'datetime') {
-      this.handleDateTimeChange(ev);
-    } else {
-      this.value = ev.detail;
-    }
+    this.updateInternalValue(ev.detail);
 
     if (!this.multiple) {
       this.active = false;
       this._input.blur();
     }
+
+    this.eventChange.emit(this.value);
+  }
+
+  @Listen('chiDateReady')
+  chiDateReadyHandler() {
+    this.chiDateReady = true;
   }
 
   _getTimePeriod(is24h, hours) {
@@ -295,23 +294,30 @@ export class DatePicker {
     return period;
   }
 
-  handleDateTimeChange(ev) {
+  updateInternalValue(value: string) {
+    if (this.mode !== 'datetime') {
+      // value: 'mm/dd/yyyy'
+      this.value = value;
+      return;
+    }
+
     const chiTime = this.el.querySelector('.chi-popover__content chi-time');
     const valueTime = chiTime.getAttribute('value');
-    const timeFormat = chiTime.getAttribute('format');
-    const is24hrTimeFormat = timeFormat === '24hr';
 
     if (!valueTime) {
       return;
     }
 
+    const timeFormat = chiTime.getAttribute('format');
+    const is24hrTimeFormat = timeFormat === '24hr';
     const time = valueTime.split(':');
     const period = this._getTimePeriod(is24hrTimeFormat, time[0]);
     const hours = !is24hrTimeFormat && parseInt(time[0]) > 12 ? parseInt(time[0]) - 12 : parseInt(time[0]);
     const hoursCalculated = this.formatTimePeriod(hours);
     const minutes = this.formatTimePeriod(parseInt(time[1]));
 
-    this.value = `${ev.detail}, ${hoursCalculated}:${minutes} ${period}`;
+    // value: 'mm/dd/yyyy, hh:mm pp'
+    this.value = `${value}, ${hoursCalculated}:${minutes} ${period}`;
   }
 
   @Listen('chiPopoverShow')
@@ -339,17 +345,16 @@ export class DatePicker {
   }
 
   @Listen('chiTimeChange')
-  handleTimeChange(ev) {
-    const chiDate = this.el.querySelector('.chi-popover__content chi-date');
+  handleTimeChange(ev: CustomEvent) {
+    const chiDate = this.el.querySelector('.chi-popover__content chi-date');    
     let activeDate = chiDate.getAttribute('value');
 
     if (!activeDate) {
       const currentTime = new Date();
-
       activeDate = `${currentTime.getMonth() + 1}/${currentTime.getDate()}/${currentTime.getFullYear()}`;
+      chiDate.setAttribute('value', activeDate);
     }
 
-    chiDate.setAttribute('value', activeDate);
     if (this.timeFormat === '24hr') {
       this.value = `${activeDate}, ${this.formatTimePeriod(ev.detail.hour)}:${this.formatTimePeriod(ev.detail.minute)}`;
     } else {
@@ -359,6 +364,8 @@ export class DatePicker {
         ev.detail.minute
       )} ${this.formatTimePeriod(ev.detail.period)}`;
     }
+
+    this.eventChange.emit(this.value);
   }
 
   formatTimePeriod(period: number): string {
@@ -413,7 +420,7 @@ export class DatePicker {
       />
     );
     const timeValue = (this.value?.split(', ') || [])[1];
-    const time = this.mode === 'datetime' 
+    const time = this.mode === 'datetime' && this.chiDateReady
       ? <chi-time format={this.timeFormat} value={timeValue} minutes-step={this.minutesStep}/> 
       : null;
     const popoverContent =
@@ -446,6 +453,18 @@ export class DatePicker {
       <chi-helper-message state={this.state}>{this.helperMessage}</chi-helper-message>
     );
 
+    let pending24hrConvertion = false;
+    const [splitDate, splitTime] = this.value.split(', ');
+
+    if (this.mode === 'datetime' && this.timeFormat !== '24hr') {
+      if (splitTime) {
+        const [splitHour] = splitTime.split(':')
+        if (Number(splitHour) > 12) {
+          pending24hrConvertion = true;
+        }
+      }
+    }
+
     return [
       // TODO: This input should be chi-input in the future and will pass through
       // some of its configuration attributes.
@@ -462,7 +481,7 @@ export class DatePicker {
             type="text"
             placeholder={this.mode === 'datetime' ? `${this.format}, --:-- --` : this.format}
             ref={(el) => (this._input = el as HTMLInputElement)}
-            value={this.value && this.multiple ? String(this.value).replace(/,/g, ', ') : this.value}
+            value={pending24hrConvertion ? splitDate : this.value && this.multiple ? String(this.value).replace(/,/g, ', ') : this.value}
             onChange={() => {
               this._checkDate();
             }}
