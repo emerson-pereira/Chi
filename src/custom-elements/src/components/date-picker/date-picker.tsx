@@ -1,4 +1,4 @@
-import { Component, Element, Listen, Method, Prop, Watch, h, Event, EventEmitter, State } from '@stencil/core';
+import { Component, Element, Listen, Method, Prop, Watch, h, Event, EventEmitter } from '@stencil/core';
 import { contains, uuid4 } from '../../utils/utils';
 import {
   CHI_TIME_AUTO_SCROLL_DELAY,
