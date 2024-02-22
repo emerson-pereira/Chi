@@ -73,18 +73,22 @@ export class DatePicker {
    * To allow the user to select multiple dates
    */
   @Prop({ reflect: true }) multiple = false;
+
   /**
    * To define state color of Date Picker
    */
   @Prop({ reflect: true }) state?: ChiStates;
+
   /**
    * To display an additional helper text message below the Date Picker
    */
   @Prop({ reflect: true }) helperMessage?: string;
+
   /**
    * To specify format for the Time Picker. Applicable only if mode is equal to 'datetime'
    */
-  @Prop({ reflect: true }) timeFormat?: TimePickerFormats;
+  @Prop({ reflect: true }) timeFormat?: TimePickerFormats = '12hr';
+  
   /**
    * Renders minutes in stepped format. Defaults to 15 min steps if no value
    * is provided (see examples in docs).
@@ -287,32 +291,6 @@ export class DatePicker {
     return period;
   }
 
-  updateInternalValue(value: string) {
-    if (this.mode !== 'datetime') {
-      // value: 'mm/dd/yyyy'
-      this.value = value;
-      return;
-    }
-
-    const chiTime = this.el.querySelector('.chi-popover__content chi-time');
-    const valueTime = chiTime.getAttribute('value');
-
-    if (!valueTime) {
-      return;
-    }
-
-    const timeFormat = chiTime.getAttribute('format');
-    const is24hrTimeFormat = timeFormat === '24hr';
-    const time = valueTime.split(':');
-    const period = this._getTimePeriod(is24hrTimeFormat, time[0]);
-    const hours = !is24hrTimeFormat && parseInt(time[0]) > 12 ? parseInt(time[0]) - 12 : parseInt(time[0]);
-    const hoursCalculated = this.formatTimePeriod(hours);
-    const minutes = this.formatTimePeriod(parseInt(time[1]));
-
-    // value: 'mm/dd/yyyy, hh:mm pp'
-    this.value = `${value}, ${hoursCalculated}:${minutes} ${period}`;
-  }
-
   @Listen('chiPopoverShow')
   handlePopoverOpen(ev) {
     ev.stopPropagation();
@@ -348,28 +326,48 @@ export class DatePicker {
       value = this.value.split(', ')[0]
     }
 
-    this.setInternalValue(activeDate || value, ev.detail, true);
+    this.setInternalValue(activeDate || value, ev.detail);
 
     this.eventChange.emit(this.value);
   }
 
-  setInternalValue(date: string, time?: { hour: number, minute: number, second: number, period: string }, fromTimeChange?: boolean) {
+  updateInternalValue(date: string) {
+    if (this.mode === 'date') {
+      this.value = date;
+    }
+    if (this.mode === 'datetime') {
+      const chiTime = this.el.querySelector('.chi-popover__content chi-time');
+      const valueTime = chiTime.getAttribute('value');
+
+      if (!valueTime) return;
+
+      const [hourMinSec, period] = valueTime.trim().split(' ');
+      const [hour, minute] = hourMinSec.split(':');
+      const time = { hour, minute, period };
+
+      this.setInternalValue(date, time);
+    }
+  }
+
+  setInternalValue(date: string, time?) {
     if (!time) {
       this.value = date;
       return;
     }
 
-    let hour = this.timeFormat === '24hr'
-      ? time.hour
-      : time.hour > 12 ? time.hour - 12 : time.hour;
+    const hour = this.timeFormat === '12hr'
+      ? time.hour > 12 ? time.hour - 12 : time.hour
+      : time.hour;
+    const formattedHour = this.formatTimePeriod(hour);
+    const formattedMinute = this.formatTimePeriod(time.minute);
+    const formattedTime = `${formattedHour}:${formattedMinute}`;
 
-    let value = `${date}, ${this.formatTimePeriod(hour)}:${this.formatTimePeriod(time.minute)}`;
-
-    if (fromTimeChange) {
-      this.value = this.timeFormat === '24hr'
-        ? value
-        : value.concat(` ${time.period}`);
+    let value = `${date}, ${formattedTime}`;
+    if (this.timeFormat === '12hr') {
+      value += ` ${time.period}`;
     }
+
+    this.value = value;
   }
 
   formatTimePeriod(period: number): string {
@@ -391,30 +389,8 @@ export class DatePicker {
       const month = this.formatTimePeriod(currentTime.getMonth() + 1);
       const year = this.formatTimePeriod(currentTime.getFullYear());
 
-      this.setInternalValue(`${month}/${day}/${year}`);
-
-      return;
+      this.value = `${month}/${day}/${year}`;
     }
-
-    let date = this.value;
-    let time = undefined;
-    if (this.mode === 'datetime') {
-      const [splitDate, splitTime] = this.value.split(', ');
-      date = splitDate;
-
-      if (splitTime) {
-        const [splitHour, splitMin] = splitTime.split(':');
-
-        time = {
-          hour: splitHour,
-          minute: splitMin,
-          second: '00',
-          period: Number(splitHour) > 12 ? 'pm' : 'am'
-        }
-      }
-    }
-
-    this.setInternalValue(date, time);
   }
 
   componentDidLoad(): void {
