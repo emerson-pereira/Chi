@@ -268,31 +268,8 @@ export class DatePicker {
     return Promise.resolve(this.value);
   }
 
-  @Listen('chiDateChange')
-  handleDateChange(ev: CustomEvent) {
-    this._input.value = ev.detail;
-    this.updateInternalValue(ev.detail);
-
-    if (!this.multiple) {
-      this.active = false;
-      this._input.blur();
-    }
-
-    this.eventChange.emit(this.value);
-  }
-
-  _getTimePeriod(is24h, hours) {
-    let period = '';
-
-    if (!is24h) {
-      period = parseInt(hours) >= 12 ? 'pm' : 'am';
-    }
-
-    return period;
-  }
-
   @Listen('chiPopoverShow')
-  handlePopoverOpen(ev) {
+  handlePopoverOpen(ev: CustomEvent) {
     ev.stopPropagation();
     const hoursColumn = this.el.querySelector(`.${TIME_CLASSES.HOURS}`);
     const minutesColumn = this.el.querySelector(`.${TIME_CLASSES.MINUTES}`);
@@ -313,6 +290,19 @@ export class DatePicker {
         }
       }
     }, CHI_TIME_AUTO_SCROLL_DELAY);
+  }
+
+  @Listen('chiDateChange')
+  handleDateChange(ev: CustomEvent) {
+    this._input.value = ev.detail;
+    this.updateInternalValue(ev.detail);
+
+    if (!this.multiple) {
+      this.active = false;
+      this._input.blur();
+    }
+
+    this.eventChange.emit(this.value);
   }
 
   @Listen('chiTimeChange')
