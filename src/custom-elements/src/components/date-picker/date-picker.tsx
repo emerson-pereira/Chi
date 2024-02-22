@@ -387,9 +387,9 @@ export class DatePicker {
 
     if (this.value === undefined) {
       const currentTime = new Date();
-      const day = currentTime.getDate();
-      const month = currentTime.getMonth() + 1;
-      const year = currentTime.getFullYear();
+      const day = this.formatTimePeriod(currentTime.getDate());
+      const month = this.formatTimePeriod(currentTime.getMonth() + 1);
+      const year = this.formatTimePeriod(currentTime.getFullYear());
 
       this.setInternalValue(`${month}/${day}/${year}`);
 
@@ -440,7 +440,7 @@ export class DatePicker {
   }
 
   render() {
-    const chiDateValue = this._getChiDateValue();
+    const chiDateValue = this._getChiDateValue();    
 
     const date = (
       <chi-date
